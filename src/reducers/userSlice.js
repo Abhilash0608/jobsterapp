@@ -5,6 +5,7 @@ import { findAllByTestId } from "@testing-library/react";
 import { getUserFromLocalStorage,removeUserFromLocalStorage,addUserToLocalStorage } from "../utils/localStorage";
 const initialState={
     isLoading:false,
+    isSidebarOpen:false,
     user:getUserFromLocalStorage()
 }
 export const registerUser=createAsyncThunk('user/registerUser',
@@ -16,6 +17,24 @@ async (user,thunkAPI)=>{
         return thunkAPI.rejectWithValue(error.response.data.msg)
        
     }  
+})
+export const updateUser=createAsyncThunk('user/updateUser',
+async (user,thunkAPI)=>{
+    try {
+        const resp=await customFetch.patch('/auth/updateUser',user,{
+            headers:{
+                authorization:`Bearer ${thunkAPI.getState().user.user.token}`,
+            },
+        })
+        return resp.data
+    } catch (error) {
+    
+        if (error.response.status === 401) {
+          thunkAPI.dispatch(logoutUser());
+          return thunkAPI.rejectWithValue('Unauthorized! Logging Out...');
+        }
+        return thunkAPI.rejectWithValue(error.response.data.msg);
+      } 
 })
 export const loginUser=createAsyncThunk('user/loginUser',
 async(user,thunkAPI)=>{
@@ -30,6 +49,19 @@ async(user,thunkAPI)=>{
 const userSlice=createSlice({
     name:'user',
     initialState,
+    reducers:{
+        logoutUser:(state,{payload})=>{
+            state.user=null
+            state.isSidebarOpen=false
+            removeUserFromLocalStorage()
+            if(payload){
+                toast.success(payload)
+            }
+        },
+        toggleSidebar:(state)=>{
+            state.isSidebarOpen=!state.isSidebarOpen
+        }
+    },
     extraReducers:{
         
         [registerUser.pending]:(state)=>{
@@ -63,7 +95,24 @@ const userSlice=createSlice({
             toast.error(payload)
             console.log(payload && payload,"rehected")
         },
+        [updateUser.pending]:(state)=>{
+            state.isLoading=true
+        },
+        [updateUser.fulfilled]:(state,{payload})=>{
+            const {user}=payload
+            state.isLoading=false
+            state.user=user
+            user && addUserToLocalStorage(user)
+            toast.success("User Updated")
+
+        },
+        [updateUser.rejected]:(state,{payload})=>{
+            state.isLoading=false
+            toast.error(payload)
+            console.log(payload && payload,"rehected")
+        },
     }
 
 })
+export const {toggleSidebar,logoutUser}=userSlice.actions 
 export default userSlice.reducer
