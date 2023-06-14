@@ -3,7 +3,9 @@ import Wrapper from '../../assets/wrappers/DashboardFormPage';
 import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import FormRowSelect from '../../components/FormRowSelect';
-import { clearValues, createJob, handleChange } from '../../reducers/jobSlice';
+import { clearValues, createJob, editJob, handleChange, } from '../../reducers/jobSlice';
+import { useEffect } from 'react';
+import userEvent from '@testing-library/user-event';
 
 const AddJob = () => {
   const {
@@ -19,12 +21,26 @@ const AddJob = () => {
     editJobId,
   } = useSelector((store) => store.job);
   const dispatch = useDispatch();
-
+  const { user } = useSelector((store) => store.user);
   const handleSubmit = (e) => {
     e.preventDefault();
 
     if (!position || !company || !jobLocation) {
       toast.error('Please Fill Out All Fields');
+      return;
+    }if (isEditing) {
+      dispatch(
+        editJob({
+          jobId: editJobId,
+          job: {
+            position,
+            company,
+            jobLocation,
+            jobType,
+            status,
+          },
+        })
+      );
       return;
     }
     dispatch(createJob({position,company,jobLocation,jobType,status}))
@@ -34,6 +50,16 @@ const AddJob = () => {
     const value = e.target.value;
     dispatch(handleChange({name,value}))
   };
+  useEffect(()=>{
+    if(!isEditing){
+      dispatch(
+        handleChange({
+          name:'jobLocation',
+          value:user.location
+        })
+      )
+    }
+  })
   return (
     <Wrapper>
       <form className='form' onSubmit={handleSubmit}>

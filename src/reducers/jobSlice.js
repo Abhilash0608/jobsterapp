@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { toast } from 'react-toastify';
-import customFetch from '../utils/axios';
+import customFetch, { checkForUnauthorizedResponse } from '../utils/axios';
 import { getUserFromLocalStorage } from '../utils/localStorage';
 import { logoutUser } from './userSlice';
 
@@ -31,9 +31,25 @@ async(job,thunkAPI)=>{
       thunkAPI.dispatch(logoutUser())
       return thunkAPI.rejectWithValue('UnAuthorized loggin Out')
     }
-    return thunkAPI.rejectWithValue(error.response.data.msg)
+    return checkForUnauthorizedResponse(error,thunkAPI)
   }
 })
+export const editJob = createAsyncThunk(
+  'job/editJob',
+  async ({ jobId, job }, thunkAPI) => {
+    try {
+      const resp = await customFetch.patch(`/jobs/${jobId}`, job, {
+        headers: {
+          authorization: `Bearer ${thunkAPI.getState().user.user.token}`,
+        },
+      });
+      thunkAPI.dispatch(clearValues());
+      return resp.data;
+    } catch (error) {
+      return checkForUnauthorizedResponse(error,thunkAPI)
+    }
+  }
+);
 
 const jobSlice = createSlice({
   name: 'job',
@@ -44,9 +60,21 @@ const jobSlice = createSlice({
     },
     clearValues:()=>{
       return initialState
-    }
+    },
+    clearAllJobsState:()=>initialState
   },
   extraReducers:{
+    [editJob.pending]: (state) => {
+      state.isLoading = true;
+    },
+    [editJob.fulfilled]: (state) => {
+      state.isLoading = false;
+      toast.success('Job Modified...');
+    },
+    [editJob.rejected]: (state, { payload }) => {
+      state.isLoading = false;
+      toast.error(payload);
+    },
     [createJob.pending]:(state)=>{
       state.isLoading=true
     },
@@ -61,5 +89,5 @@ const jobSlice = createSlice({
 
   }
 });
-export const  {handleChange,clearValues}=jobSlice.actions
+export const  {handleChange,clearValues,clearAllJobsState}=jobSlice.actions
 export default jobSlice.reducer;
